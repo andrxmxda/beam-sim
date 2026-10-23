@@ -17,8 +17,10 @@ from beam import (
 )
 from materials import MATERIALS, Material
 
-LINE_COLOR = "#2a78d6"
-FILL_COLOR = "rgba(42, 120, 214, 0.15)"
+LINE_COLOR = "#d94c86"
+FILL_COLOR = "rgba(217, 76, 134, 0.16)"
+GRID_COLOR = "#f6d5e2"
+TEXT_COLOR = "#4b2a3a"
 
 PHYSICS_NOTES = r"""
 The beam rests on a pin at the left end and a roller at the right, so each
@@ -204,7 +206,7 @@ def diagrams(result: Analysis) -> go.Figure:
             row=row,
             col=1,
         )
-        fig.add_hline(y=0, line_width=1, line_color="gray", row=row, col=1)
+        fig.add_hline(y=0, line_width=1, line_color="#c9a3b4", row=row, col=1)
 
     peaks = [
         (2, result.max_moment_position, result.max_moment / 1000, "kN·m"),
@@ -227,12 +229,25 @@ def diagrams(result: Analysis) -> go.Figure:
         )
 
     fig.update_xaxes(title_text="Position along beam (m)", row=3, col=1)
-    fig.update_layout(height=780, showlegend=False, hovermode="x", margin={"t": 40, "b": 40})
+    fig.update_xaxes(gridcolor=GRID_COLOR, zeroline=False)
+    fig.update_yaxes(gridcolor=GRID_COLOR, zeroline=False)
+    fig.update_annotations(font={"family": "Fredoka, sans-serif", "size": 16})
+    fig.update_layout(
+        height=780,
+        showlegend=False,
+        hovermode="x",
+        margin={"t": 40, "b": 40},
+        font={"family": "Nunito, sans-serif", "color": TEXT_COLOR},
+        paper_bgcolor="rgba(0, 0, 0, 0)",
+        plot_bgcolor="rgba(0, 0, 0, 0)",
+        hoverlabel={"bgcolor": "#ffffff", "bordercolor": LINE_COLOR},
+    )
     return fig
 
 
 st.set_page_config(page_title="Beam Simulator", layout="wide")
 st.title("Simply supported beam")
+st.caption("Set up a beam, add some loads, and watch it bend.")
 with st.expander("How the physics works"):
     st.markdown(PHYSICS_NOTES)
 

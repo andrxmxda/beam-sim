@@ -1,0 +1,16 @@
+[theme]
+base = "light"
+primaryColor = "#c23d74"
+backgroundColor = "#fff6f9"
+secondaryBackgroundColor = "#fde7ef"
+textColor = "#4b2a3a"
+linkColor = "#c23d74"
+borderColor = "#f6c9da"
+font = "Nunito:https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap"
+headingFont = "Fredoka:https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap"
+metricValueFontSize = "1.6rem"
+baseRadius = "1rem"
+buttonRadius = "full"
+
+[theme.sidebar]
+backgroundColor = "#fde7ef"
