@@ -13,7 +13,7 @@ An interactive Streamlit app that models a simply supported beam under point loa
 Requires Python 3.11 or newer.
 
 ```
-git clone https://github.com/<your-username>/beam-sim.git
+git clone https://github.com/andrxmxda/beam-sim.git
 cd beam-sim
 python -m venv .venv
 .venv\Scripts\activate        # macOS/Linux: source .venv/bin/activate
