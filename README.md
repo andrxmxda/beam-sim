@@ -2,11 +2,13 @@
 
 An interactive Streamlit app that models a simply supported beam under point loads and distributed loads. Change the span, material, cross-section or loads, and the shear force, bending moment and deflection diagrams update right away. The app also reports the support reactions, peak bending stress and a safety factor.
 
+**Live app:** [beam-sim-eyrgiqh9t64zuiahji7mxx.streamlit.app](https://beam-sim-eyrgiqh9t64zuiahji7mxx.streamlit.app/)
+
 ![Screenshot of the app](docs/screenshot.png)
 
 ## Why I built it
 
-<!-- A few sentences in your own words. -->
+I've always been curious about how bridges hold up the weight we put on them. The equations for shear, moment and deflection made sense on paper, but I wanted to see them change as I moved a load or swapped a material. Building this gave me a way to do that, and it was also practice in keeping the math separate from the UI and testing it against results I could check by hand.
 
 ## How to run
 
