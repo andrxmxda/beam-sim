@@ -5,11 +5,50 @@ import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from beam import Analysis, DistributedLoad, PointLoad, RectangularSection, analyze
+from beam import (
+    Analysis,
+    DistributedLoad,
+    Load,
+    PointLoad,
+    RectangularSection,
+    analyze,
+    load_problem,
+    safety_rating,
+)
 from materials import MATERIALS, Material
 
 LINE_COLOR = "#2a78d6"
 FILL_COLOR = "rgba(42, 120, 214, 0.15)"
+
+PHYSICS_NOTES = r"""
+The beam rests on a pin at the left end and a roller at the right, so each
+support can only push up. Every result below comes from those two supports
+and the loads you enter.
+
+**Reactions.** The beam is not moving, so forces and turning effects balance.
+Taking moments about the left support gives
+$R_B = \sum F_i x_i \,/\, L$ and $R_A = \sum F_i - R_B$. A distributed load
+acts like its total force placed at its midpoint.
+
+**Shear force.** Cut the beam at $x$: $V(x)$ is $R_A$ minus every load to the
+left of the cut. It jumps at point loads and slopes under distributed loads.
+
+**Bending moment.** At the same cut, $M(x) = R_A x - \sum F_i (x - x_i)$ over
+the loads to the left. It is zero at both supports and peaks where the shear
+crosses zero.
+
+**Deflection.** Curvature is proportional to moment: $E I \, y'' = M(x)$. The
+app integrates this twice numerically and fixes the two constants so the beam
+does not move at either support.
+
+**Stress and safety.** For a rectangle $I = b h^3 / 12$, and the peak stress
+sits at the top or bottom face: $\sigma = M c / I$ with $c = h / 2$. The safety
+factor is material strength divided by peak stress. Green means 2 or more,
+yellow means 1 to 2, red means below 1.
+
+**Assumptions.** Linear elastic material, small deflections, the beam's own
+weight ignored, and no shear deformation or buckling.
+"""
 
 DEFAULT_POINT_LOADS = pd.DataFrame({"position": [2.0], "magnitude": [10.0]})
 DEFAULT_UDLS = pd.DataFrame({"start": [0.0], "end": [6.0], "intensity": [2.0]})
@@ -28,7 +67,8 @@ def beam_inputs() -> tuple[float, Material, RectangularSection]:
     return length, material, RectangularSection(width / 1000, height / 1000)
 
 
-def load_inputs() -> list[PointLoad | DistributedLoad]:
+def load_inputs() -> tuple[list[Load], int]:
+    """Return the complete load rows and how many rows were left incomplete."""
     number = st.column_config.NumberColumn
     left, right = st.columns(2)
     with left:
@@ -59,14 +99,34 @@ def load_inputs() -> list[PointLoad | DistributedLoad]:
             },
         )
 
-    loads: list[PointLoad | DistributedLoad] = [
-        PointLoad(row.position, row.magnitude * 1000) for row in points.dropna().itertuples()
+    complete_points, complete_udls = points.dropna(), udls.dropna()
+    incomplete = len(points) - len(complete_points) + len(udls) - len(complete_udls)
+
+    loads: list[Load] = [
+        PointLoad(row.position, row.magnitude * 1000) for row in complete_points.itertuples()
     ]
     loads += [
         DistributedLoad(row.start, row.end, row.intensity * 1000)
-        for row in udls.dropna().itertuples()
+        for row in complete_udls.itertuples()
     ]
-    return loads
+    return loads, incomplete
+
+
+def usable_loads(loads: list[Load], length: float, incomplete: int) -> list[Load]:
+    """Drop loads that don't fit on the beam, telling the user why."""
+    if incomplete:
+        st.info(f"{incomplete} incomplete row(s) skipped until every cell is filled in.")
+
+    usable = []
+    for load in loads:
+        if problem := load_problem(load, length):
+            st.warning(f"{problem} It is left out of the analysis.")
+        else:
+            usable.append(load)
+
+    if not usable:
+        st.info("No loads on the beam yet. Add a row to either table to see the diagrams change.")
+    return usable
 
 
 def show_summary(result: Analysis, material: Material) -> None:
@@ -87,7 +147,33 @@ def show_summary(result: Analysis, material: Material) -> None:
         help=f"At x = {result.max_deflection_position:.2f} m",
     )
     cols[4].metric("Max stress", f"{result.max_stress / 1e6:.1f} MPa")
-    cols[5].metric("Safety factor", sf, help=f"{material.name} strength: {material.strength / 1e6:.0f} MPa")
+    cols[5].metric(
+        "Safety factor",
+        sf,
+        help=f"{material.name} {material.strength_kind}: {material.strength / 1e6:.0f} MPa",
+    )
+
+
+def show_safety(result: Analysis, material: Material) -> None:
+    factor = result.safety_factor
+    if math.isinf(factor):
+        return
+
+    stress = f"Peak stress {result.max_stress / 1e6:.1f} MPa"
+    strength = f"{material.strength / 1e6:.0f} MPa {material.strength_kind}"
+    rating = safety_rating(factor)
+    if rating == "safe":
+        st.success(f"Safe. Safety factor {factor:.2f}. {stress} against a {strength}.")
+    elif rating == "marginal":
+        st.warning(
+            f"Marginal. Safety factor {factor:.2f}, below the usual design target of 2. "
+            f"{stress} against a {strength}."
+        )
+    else:
+        st.error(
+            f"Failing. Safety factor {factor:.2f}. {stress} exceeds the {strength}, "
+            "so this beam would not hold."
+        )
 
 
 def diagrams(result: Analysis) -> go.Figure:
@@ -147,10 +233,13 @@ def diagrams(result: Analysis) -> go.Figure:
 
 st.set_page_config(page_title="Beam Simulator", layout="wide")
 st.title("Simply supported beam")
+with st.expander("How the physics works"):
+    st.markdown(PHYSICS_NOTES)
 
 length, material, section = beam_inputs()
-loads = load_inputs()
-result = analyze(length, loads, material, section)
+loads, incomplete = load_inputs()
+result = analyze(length, usable_loads(loads, length, incomplete), material, section)
 
 show_summary(result, material)
+show_safety(result, material)
 st.plotly_chart(diagrams(result), width="stretch")

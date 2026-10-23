@@ -7,6 +7,7 @@ from beam import (
     RectangularSection,
     analyze,
     deflection,
+    load_problem,
     moment,
     reactions,
     safety_rating,
@@ -174,3 +175,43 @@ def test_shear_diagram_has_vertical_step_at_point_load():
 
     assert result.x[i] == 2.0
     assert result.shear[i] - result.shear[i + 1] == pytest.approx(P)
+
+
+@pytest.mark.parametrize(
+    "load",
+    [
+        PointLoad(0.0, P),
+        PointLoad(L, P),
+        DistributedLoad(0.0, L, W),
+        DistributedLoad(1.0, 2.0, -W),
+    ],
+)
+def test_valid_loads_have_no_problem(load):
+    assert load_problem(load, L) is None
+
+
+@pytest.mark.parametrize(
+    "load, expected",
+    [
+        (PointLoad(L + 0.5, P), "off the beam"),
+        (PointLoad(-1.0, P), "off the beam"),
+        (DistributedLoad(3.0, 2.0, W), "end after it starts"),
+        (DistributedLoad(2.0, 2.0, W), "end after it starts"),
+        (DistributedLoad(4.0, L + 1, W), "runs past the beam"),
+    ],
+)
+def test_invalid_loads_are_reported(load, expected):
+    assert expected in load_problem(load, L)
+
+
+@pytest.mark.parametrize(
+    "length, section, loads",
+    [
+        (0.0, SECTION, []),
+        (L, RectangularSection(0.0, 0.3), []),
+        (L, SECTION, [PointLoad(L + 1, P)]),
+    ],
+)
+def test_analyze_rejects_bad_inputs(length, section, loads):
+    with pytest.raises(ValueError):
+        analyze(length, loads, STEEL, section)

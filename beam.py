@@ -43,6 +43,20 @@ def _resultant(load: Load) -> tuple[float, float]:
     return load.total, load.centroid
 
 
+def load_problem(load: Load, length: float) -> str | None:
+    """Return why the load can't be applied to this beam, or None if it can."""
+    if isinstance(load, PointLoad):
+        if not 0 <= load.position <= length:
+            return f"Point load at {load.position:g} m is off the beam (span is {length:g} m)."
+        return None
+    where = f"Distributed load from {load.start:g} to {load.end:g} m"
+    if load.end <= load.start:
+        return f"{where} has to end after it starts."
+    if load.start < 0 or load.end > length:
+        return f"{where} runs past the beam (span is {length:g} m)."
+    return None
+
+
 def reactions(length: float, loads: list[Load]) -> tuple[float, float]:
     """Return (R_A, R_B), the upward support forces at the left and right ends."""
     total = 0.0
@@ -162,6 +176,14 @@ def analyze(
     section: RectangularSection,
     samples: int = 2001,
 ) -> Analysis:
+    if length <= 0:
+        raise ValueError("Span must be positive.")
+    if section.width <= 0 or section.height <= 0:
+        raise ValueError("Section width and height must be positive.")
+    for load in loads:
+        if problem := load_problem(load, length):
+            raise ValueError(problem)
+
     point_positions = [ld.position for ld in loads if isinstance(ld, PointLoad)]
     # Each point load gets a sample on both sides of its shear jump so the
     # plotted diagram shows a vertical step instead of a slanted line.
